@@ -1,0 +1,162 @@
+---
+title: "Mining my Twitter Data"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+These are the requisite libraries for Text mining, and Sentiment Analysis 
+
+```{r}
+library(dplyr)
+library(stringr)
+library(tidytext)
+library(ggplot2)
+library(wordcloud)
+library(tm)
+```
+
+
+Import our data into R. I always use file.choose() to select my files manually (#avoiding directory issues)
+
+```{r}
+LD<-(read.csv(file.choose(),header=T))
+```
+
+
+We need to unnest the words in the column, we turn them into one-token-per-row/unigrams (NB: there are packages that can utilize sentences)
+
+```{r}
+tidyLD<-LD%>%
+  unnest_tokens(word, text)
+
+tidyLD
+```
+Time to remove irrelevant stop words from the data
+
+```{r}
+data(stop_words)
+
+tidyLD <- tidyLD %>%
+  anti_join(stop_words)
+```
+
+
+
+
+```{r}
+
+tidyLD %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 600) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+```
+United seems to be a big buzz word. flight, americanair, and CANCELLED. 
+
+
+
+
+
+To remove 2, http, t.co we can create stop words, then we use the anti join again.However, for this analysis, I am skipping that part.
+
+
+Lets do a count to see how these words spread.
+```{r}
+tidyLD%>%
+  count(word, sort = TRUE)
+```
+There are several sentiment lexicons bing, afinn, but for this analysis I will be using nrc.
+
+```{r}
+get_sentiments("nrc")
+
+
+```
+So I'm going to filter the lexicon for anger, What words in the tweets that the travelers use that show anger?
+
+Also I will use the Inner join (think of this an an intersect in a set A N B) to merge the tables 
+```{r}
+nrc_anger<- get_sentiments("nrc") %>% 
+  filter(sentiment == "anger")
+
+
+tidyLD %>%
+   inner_join(nrc_anger) %>%
+  count(word, sort = TRUE)
+```
+
+A probable cause of anger might be delay. Also, bad, terrible, money and fee are somewhere on top the list
+
+
+
+
+I want to investigate some negative sentiments.
+```{r}
+nrc_negative <- get_sentiments("nrc") %>% 
+  filter(sentiment == "negative")
+
+
+tnegative<-tidyLD %>%
+   inner_join(nrc_negative) %>%
+  count(word, sort = TRUE)
+
+
+```
+Most negative tweets are related to delayed! Delay again! The tweets also show that wait which is a synonym for delay causes negative impacts.
+
+
+
+Let's investigate some disgust. 
+```{r}
+nrc_disgust <- get_sentiments("nrc") %>% 
+  filter(sentiment == "disgust")
+
+
+tidyLD %>%
+   inner_join(nrc_disgust) %>%
+  count(word, sort = TRUE)
+```
+
+Delay! No one is happy with delay. Surpirisngly delay jumps out as a primary reason for negative feedback.
+
+
+
+
+```{r}
+nrc_fear<- get_sentiments("nrc") %>% 
+  filter(sentiment == "fear")
+
+
+tidyLD %>%
+   inner_join(nrc_fear) %>%
+  count(word, sort = TRUE)
+```
+
+Delay, flying,bad, missing!!!!!
+
+
+
+
+
+
+```{r}
+
+
+
+tidyLD%>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+
+
+Let's use some tools that can go beyound using unigrams or single words.
